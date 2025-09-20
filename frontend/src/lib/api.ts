@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Create axios instance with base configuration
+// Create axios instance with base configuration for API communication
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
   headers: {
@@ -8,9 +8,10 @@ const API = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to automatically add JWT token to all requests
 API.interceptors.request.use(
   (config) => {
+    // Get token from localStorage and add to Authorization header
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -100,6 +101,26 @@ export const userAPI = {
     employeeId?: string;
   }) => {
     const response = await API.post('/api/auth/users', userData);
+    return response.data;
+  },
+
+  updateUser: async (id: string, userData: {
+    name?: string;
+    email?: string;
+    role?: string;
+    isActive?: boolean;
+  }) => {
+    const response = await API.put(`/api/auth/users/${id}`, userData);
+    return response.data;
+  },
+
+  deleteUser: async (id: string) => {
+    const response = await API.delete(`/api/auth/users/${id}`);
+    return response.data;
+  },
+
+  getSystemStats: async () => {
+    const response = await API.get('/api/auth/admin/stats');
     return response.data;
   }
 };

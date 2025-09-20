@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { authAPI } from '@/lib/api';
 
 const roles: { value: UserRole; label: string; description: string }[] = [
-  { value: 'admin', label: 'Administrator', description: 'Full system access and management' },
   { value: 'manager', label: 'Production Manager', description: 'Oversee production orders and workflows' },
   { value: 'operator', label: 'Shop Floor Operator', description: 'Execute work orders and update status' },
   { value: 'inventory', label: 'Inventory Manager', description: 'Track stock movement and materials' }

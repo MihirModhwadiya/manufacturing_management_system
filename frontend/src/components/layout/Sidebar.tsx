@@ -12,7 +12,8 @@ import {
   FileText, 
   Settings,
   LogOut,
-  Factory
+  Factory,
+  Shield
 } from 'lucide-react';
 
 const navigationItems = [
@@ -51,6 +52,12 @@ const navigationItems = [
     href: '/reports',
     icon: FileText,
     roles: ['admin', 'manager']
+  },
+  {
+    title: 'Admin Panel',
+    href: '/admin',
+    icon: Shield,
+    roles: ['admin']
   }
 ];
 

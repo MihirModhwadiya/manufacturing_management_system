@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { AdminRoute } from "@/components/AdminRoute";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -15,6 +16,7 @@ import WorkOrders from "./pages/WorkOrders";
 import BOM from "./pages/BOM";
 import StockLedger from "./pages/StockLedger";
 import Profile from "./pages/Profile";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +62,14 @@ const App = () => (
               <Route path="bom" element={<BOM />} />
               <Route path="stock-ledger" element={<StockLedger />} />
               <Route path="profile" element={<Profile />} />
+              <Route 
+                path="admin" 
+                element={
+                  <AdminRoute>
+                    <Admin />
+                  </AdminRoute>
+                } 
+              />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

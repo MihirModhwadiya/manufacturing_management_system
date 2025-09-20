@@ -33,9 +33,10 @@ const sendEmail = async (to, subject, html) => {
 // Signup
 router.post('/signup', async (req, res) => {
   try {
+    // Destructure and extract fields from request body with default role
     const { name, email, password, confirmPassword, role = 'operator' } = req.body;
     
-    // Basic validation
+    // Basic validation - check all required fields are present
     if (!name || !email || !password || !confirmPassword) {
       return res.status(400).json({ message: 'All fields required.' });
     }
@@ -63,18 +64,15 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ message: 'Email already registered.' });
     }
     
+    // Hash password with salt rounds of 10 for security
     const passwordHash = await bcrypt.hash(password, 10);
     
-    // Generate avatar initials
-    const avatar = name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-    
+    // Create new user document in database with hashed password
     const user = await User.create({ 
       name, 
       email, 
-      passwordHash, 
-      role,
-      avatar,
-      isVerified: false 
+      passwordHash: passwordHash, 
+      role
     });
     
     // Email verification token
@@ -134,6 +132,39 @@ router.get('/verify/:token', async (req, res) => {
   }
 });
 
+// Test login route for debugging
+router.post('/test-login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    console.log('🔍 Test login attempt:', email);
+    console.log('   Input password:', password);
+    
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: 'User not found' });
+    }
+    
+    console.log('✅ User found:', user.name, user.role);
+    console.log('   User object keys:', Object.keys(user.toObject()));
+    console.log('   Password field in user:', 'password' in user);
+    console.log('   Password field value exists:', !!user.password);
+    
+    // Return debug info
+    res.json({
+      message: 'Debug info',
+      userKeys: Object.keys(user.toObject()),
+      hasPassword: !!user.password,
+      passwordType: typeof user.password,
+      inputPassword: password,
+      inputType: typeof password
+    });
+    
+  } catch (error) {
+    console.error('❌ Test login error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Login
 router.post('/login', async (req, res) => {
   try {
@@ -156,6 +187,7 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ message: 'Account is deactivated. Contact administrator.' });
     }
     
+    // Compare password with stored hash (using 'passwordHash' field from database)
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       return res.status(400).json({ message: 'Invalid credentials.' });
@@ -170,13 +202,15 @@ router.post('/login', async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
     
-    // Enhanced JWT payload with role information
+    // Generate JWT token with user ID, email, and role for authentication
+    // Token expires in 24 hours for security
     const token = jwt.sign({ 
       id: user._id,
       email: user.email,
       role: user.role
     }, process.env.JWT_SECRET, { expiresIn: '24h' });
     
+    // Return success response with token and safe user data (no password)
     res.json({ 
       token, 
       user: { 
@@ -184,9 +218,8 @@ router.post('/login', async (req, res) => {
         name: user.name, 
         email: user.email,
         role: user.role,
-        avatar: user.avatar,
-        department: user.department,
-        employeeId: user.employeeId,
+        isActive: user.isActive,
+        isVerified: user.isVerified,
         lastLogin: user.lastLogin
       } 
     });
@@ -378,20 +411,24 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// Create user (Admin only)
+// Create user (Admin only) - allows admins to create users directly
 router.post('/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    // Extract user data from request body for admin user creation
     const { name, email, password, role, department, employeeId } = req.body;
 
+    // Validate required fields for user creation
     if (!name || !email || !password || !role) {
       return res.status(400).json({ message: 'Name, email, password, and role are required.' });
     }
 
+    // Define valid roles and validate user input
     const validRoles = ['admin', 'manager', 'operator', 'inventory'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ message: 'Invalid role specified.' });
     }
 
+    // Check if user with this email already exists
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: 'Email already registered.' });
@@ -403,12 +440,9 @@ router.post('/users', authenticateToken, requireAdmin, async (req, res) => {
     const user = await User.create({
       name,
       email,
-      passwordHash,
+      passwordHash: passwordHash,
       role,
-      avatar,
-      department,
-      employeeId,
-      isVerified: true, // Admin-created users are auto-verified
+      isActive: true,
       createdBy: req.user.id
     });
 
@@ -419,15 +453,128 @@ router.post('/users', authenticateToken, requireAdmin, async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        avatar: user.avatar,
-        department: user.department,
-        employeeId: user.employeeId,
         isActive: user.isActive,
         createdAt: user.createdAt
       }
     });
   } catch (error) {
     console.error('Create user error:', error);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// Update user (Admin only)
+router.put('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, role, isActive } = req.body;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Prevent admin from deactivating themselves
+    if (id === req.user.id && isActive === false) {
+      return res.status(400).json({ message: 'You cannot deactivate your own account.' });
+    }
+
+    const validRoles = ['admin', 'manager', 'operator', 'inventory'];
+    if (role && !validRoles.includes(role)) {
+      return res.status(400).json({ message: 'Invalid role specified.' });
+    }
+
+    // Update fields
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (role) user.role = role;
+    if (typeof isActive === 'boolean') user.isActive = isActive;
+
+    await user.save();
+
+    res.json({
+      message: 'User updated successfully.',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// Delete user (Admin only)
+router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent admin from deleting themselves
+    if (id === req.user.id) {
+      return res.status(400).json({ message: 'You cannot delete your own account.' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    await User.findByIdAndDelete(id);
+
+    res.json({ message: 'User deleted successfully.' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// Get system statistics (Admin only)
+router.get('/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    // Get user counts by role
+    const userStats = await User.aggregate([
+      {
+        $group: {
+          _id: '$role',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const totalUsers = await User.countDocuments();
+    const activeUsers = await User.countDocuments({ isActive: true });
+
+    // Mock manufacturing data for now - can be replaced with real collections later
+    const stats = {
+      users: {
+        total: totalUsers,
+        active: activeUsers,
+        inactive: totalUsers - activeUsers,
+        byRole: userStats.reduce((acc, stat) => {
+          acc[stat._id] = stat.count;
+          return acc;
+        }, {})
+      },
+      manufacturing: {
+        orders: 12,
+        workOrders: 28,
+        completedOrders: 8,
+        pendingOrders: 4
+      },
+      system: {
+        uptime: process.uptime(),
+        memoryUsage: process.memoryUsage(),
+        nodeVersion: process.version
+      }
+    };
+
+    res.json(stats);
+  } catch (error) {
+    console.error('Get stats error:', error);
     res.status(500).json({ message: 'Server error.' });
   }
 });

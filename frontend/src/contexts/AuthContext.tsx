@@ -46,13 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
+  // Login function that handles user authentication with error handling
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setLoading(true);
+      // Call authentication API with user credentials
       const response = await authAPI.login(email, password);
       
       if (response.token && response.user) {
-        // Store token and user data
+        // Store JWT token and user data in localStorage for session persistence
         localStorage.setItem('token', response.token);
         localStorage.setItem('user', JSON.stringify(response.user));
         setUser(response.user);
@@ -63,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       console.error('Login error:', error);
       
-      // Clear any stored data on login failure
+      // Clear any existing stored data on login failure for security
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setUser(null);
