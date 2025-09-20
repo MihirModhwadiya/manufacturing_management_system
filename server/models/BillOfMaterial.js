@@ -1,13 +1,13 @@
 import mongoose from 'mongoose';
 
 const bomSchema = new mongoose.Schema({
-  productId: {
+  product: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Product',
     required: true
   },
   materials: [{
-    materialId: {
+    material: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Material',
       required: true
@@ -18,6 +18,22 @@ const bomSchema = new mongoose.Schema({
       min: 0
     }
   }],
+  version: {
+    type: String,
+    default: '1.0'
+  },
+  notes: {
+    type: String,
+    default: ''
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   operations: [{
     operationName: {
       type: String,
@@ -35,8 +51,10 @@ const bomSchema = new mongoose.Schema({
       min: 0
     }
   }]
+}, {
+  timestamps: true
 });
 
-bomSchema.index({ productId: 1 });
+bomSchema.index({ product: 1 });
 
 export default mongoose.model('BillOfMaterial', bomSchema);

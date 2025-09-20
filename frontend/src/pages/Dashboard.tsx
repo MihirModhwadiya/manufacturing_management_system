@@ -1,22 +1,88 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { KPICard } from '@/components/ui/kpi-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { mockKPIs, mockManufacturingOrders, mockWorkOrders } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
-import { AlertTriangle, TrendingUp, Activity, Clock } from 'lucide-react';
+import { manufacturingOrderAPI, workOrderAPI, dashboardAPI } from '@/lib/api';
+import { useToast } from '@/components/ui/use-toast';
+import { AlertTriangle, TrendingUp, Activity, Clock, Loader2 } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [manufacturingOrders, setManufacturingOrders] = useState([]);
+  const [workOrders, setWorkOrders] = useState([]);
+  const [kpis, setKpis] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
   
-  const urgentOrders = mockManufacturingOrders.filter(order => 
+  // Fetch dashboard data on component mount
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+  
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [ordersResponse, workOrdersResponse, analyticsResponse, activityResponse] = await Promise.all([
+        manufacturingOrderAPI.getAll(),
+        workOrderAPI.getAll(),
+        dashboardAPI.getAnalytics('30'), // 30 days
+        dashboardAPI.getActivity(5) // 5 recent activities
+      ]);
+      
+      setManufacturingOrders(ordersResponse.orders || []);
+      setWorkOrders(workOrdersResponse.workOrders || []);
+      setKpis(analyticsResponse.analytics?.kpis || []);
+      setRecentActivity(activityResponse.activities || []);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load dashboard data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const urgentOrders = manufacturingOrders.filter(order => 
     order.priority === 'urgent' || order.status === 'delayed'
   );
   
-  const activeWorkOrders = mockWorkOrders.filter(wo => wo.status === 'in-progress');
+  const activeWorkOrders = workOrders.filter(wo => wo.status === 'in-progress');
+  const completedToday = manufacturingOrders.filter(o => {
+    const completedDate = new Date(o.completedAt);
+    const today = new Date();
+    return o.status === 'completed' && 
+           completedDate.toDateString() === today.toDateString();
+  });
+  
+  // Calculate on-time delivery rate from real data
+  const completedOrders = manufacturingOrders.filter(o => o.status === 'completed');
+  const onTimeOrders = completedOrders.filter(o => {
+    const completedDate = new Date(o.completedAt);
+    const dueDate = new Date(o.dueDate);
+    return completedDate <= dueDate;
+  });
+  const onTimeDeliveryRate = completedOrders.length > 0 
+    ? Math.round((onTimeOrders.length / completedOrders.length) * 100) 
+    : 0;
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -27,7 +93,7 @@ export default function Dashboard() {
 
       {/* KPI Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {mockKPIs.map((kpi, index) => (
+        {kpis.map((kpi, index) => (
           <KPICard key={index} kpi={kpi} />
         ))}
       </div>
@@ -97,12 +163,12 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Production Trends */}
+        {/* Production Metrics */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-success" />
-              <CardTitle>Production Trends</CardTitle>
+              <CardTitle>Production Metrics</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
@@ -110,22 +176,21 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <span className="text-sm">Orders Completed</span>
                 <div className="flex items-center gap-2">
-                  <Progress value={75} className="w-16" />
-                  <span className="text-sm font-medium">75%</span>
+                  <span className="text-sm font-medium">
+                    {manufacturingOrders.filter(o => o.status === 'completed').length} / {manufacturingOrders.length}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm">On-Time Delivery</span>
                 <div className="flex items-center gap-2">
-                  <Progress value={85} className="w-16" />
-                  <span className="text-sm font-medium">85%</span>
+                  <span className="text-sm font-medium">{onTimeDeliveryRate}%</span>
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm">Quality Rate</span>
+                <span className="text-sm">Active Work Orders</span>
                 <div className="flex items-center gap-2">
-                  <Progress value={92} className="w-16" />
-                  <span className="text-sm font-medium">92%</span>
+                  <span className="text-sm font-medium">{activeWorkOrders.length}</span>
                 </div>
               </div>
             </div>
@@ -160,27 +225,34 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-success rounded-full mt-2" />
-                <div className="space-y-1">
-                  <p className="text-sm">MO-2024-003 completed</p>
-                  <p className="text-xs text-muted-foreground">2 hours ago</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-warning rounded-full mt-2" />
-                <div className="space-y-1">
-                  <p className="text-sm">Low stock alert: Steel Plate</p>
-                  <p className="text-xs text-muted-foreground">4 hours ago</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-info rounded-full mt-2" />
-                <div className="space-y-1">
-                  <p className="text-sm">New work order assigned</p>
-                  <p className="text-xs text-muted-foreground">6 hours ago</p>
-                </div>
-              </div>
+              {recentActivity.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No recent activity</p>
+              ) : (
+                recentActivity.map((activity, index) => {
+                  const timeAgo = new Date().getTime() - new Date(activity.timestamp).getTime();
+                  const hoursAgo = Math.floor(timeAgo / (1000 * 60 * 60));
+                  const timeText = hoursAgo < 1 ? 'Just now' : `${hoursAgo}h ago`;
+                  
+                  const getStatusColor = (status) => {
+                    switch (status) {
+                      case 'completed': return 'bg-success';
+                      case 'in-progress': return 'bg-info';
+                      case 'pending': return 'bg-warning';
+                      default: return 'bg-muted-foreground';
+                    }
+                  };
+                  
+                  return (
+                    <div key={index} className="flex items-start gap-3">
+                      <div className={`w-2 h-2 rounded-full mt-2 ${getStatusColor(activity.status)}`} />
+                      <div className="space-y-1">
+                        <p className="text-sm">{activity.description}</p>
+                        <p className="text-xs text-muted-foreground">{timeText}</p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </CardContent>
         </Card>

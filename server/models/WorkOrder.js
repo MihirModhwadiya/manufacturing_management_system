@@ -7,20 +7,14 @@ const workOrderSchema = new mongoose.Schema({
     unique: true,
     trim: true
   },
-  manufacturingOrderId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'ManufacturingOrder',
-    required: true
+  operation: {
+    type: String,
+    required: true,
+    trim: true
   },
-  machineId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Machine',
-    required: true
-  },
-  operatorId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+  assignedTo: {
+    type: String,
+    trim: true
   },
   status: {
     type: String,
@@ -28,29 +22,41 @@ const workOrderSchema = new mongoose.Schema({
     enum: ['pending', 'in-progress', 'completed', 'cancelled'],
     default: 'pending'
   },
-  estimatedMinutes: {
-    type: Number,
+  priority: {
+    type: String,
     required: true,
+    enum: ['low', 'medium', 'high', 'urgent'],
+    default: 'medium'
+  },
+  estimatedHours: {
+    type: Number,
     min: 0
   },
-  actualMinutes: {
+  actualHours: {
     type: Number,
     min: 0
+  },
+  instructions: {
+    type: String,
+    default: ''
   },
   startTime: {
     type: Date
   },
   endTime: {
     type: Date
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   }
 }, {
   timestamps: true
 });
 
-workOrderSchema.index({ workOrderNumber: 1 });
-workOrderSchema.index({ manufacturingOrderId: 1 });
-workOrderSchema.index({ operatorId: 1 });
-workOrderSchema.index({ machineId: 1 });
+workOrderSchema.index({ orderNumber: 1 });
 workOrderSchema.index({ status: 1 });
+workOrderSchema.index({ createdAt: -1 });
 
 export default mongoose.model('WorkOrder', workOrderSchema);

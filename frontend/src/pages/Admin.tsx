@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,9 +8,16 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Users, Settings, BarChart3, Database, UserPlus, Trash2, Edit, Shield, Activity } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { 
+  Users, Settings, BarChart3, Database, UserPlus, Trash2, Edit, Shield, Activity,
+  Package, ClipboardList, Factory, FileText, Warehouse, Plus, Calendar
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { userAPI } from '@/lib/api';
+import { 
+  userAPI, manufacturingOrderAPI, workOrderAPI, workCenterAPI, 
+  bomAPI, stockLedgerAPI, profileReportAPI 
+} from '@/lib/api';
 
 interface User {
   _id: string;
@@ -47,26 +54,97 @@ export default function Admin() {
     role: 'operator'
   });
   
+  // Manufacturing management state
+  const [manufacturingOrders, setManufacturingOrders] = useState([]);
+  const [workOrders, setWorkOrders] = useState([]);
+  const [workCenters, setWorkCenters] = useState([]);
+  const [boms, setBoms] = useState([]);
+  const [stockMovements, setStockMovements] = useState([]);
+  const [profileReports, setProfileReports] = useState([]);
+  
+  // Dialog states
+  const [showCreateOrder, setShowCreateOrder] = useState(false);
+  const [showCreateWorkOrder, setShowCreateWorkOrder] = useState(false);
+  const [showCreateWorkCenter, setShowCreateWorkCenter] = useState(false);
+  const [showCreateBOM, setShowCreateBOM] = useState(false);
+  const [showRecordMovement, setShowRecordMovement] = useState(false);
+  const [showCreateReport, setShowCreateReport] = useState(false);
+  
+  // Manufacturing order form state
+  const [newOrder, setNewOrder] = useState({
+    product: '',
+    quantity: '',
+    priority: 'medium',
+    dueDate: '',
+    notes: ''
+  });
+  
+  // Work order form state
+  const [newWorkOrder, setNewWorkOrder] = useState({
+    operation: '',
+    assignedTo: '',
+    priority: 'medium',
+    estimatedHours: '',
+    instructions: ''
+  });
+  
+  // Work center form state
+  const [newWorkCenter, setNewWorkCenter] = useState({
+    code: '',
+    name: '',
+    description: '',
+    type: 'manufacturing',
+    location: '',
+    capacity: '',
+    hourlyRate: ''
+  });
+  
+  // Stock movement form state
+  const [newMovement, setNewMovement] = useState({
+    material: '',
+    movementType: 'in',
+    quantity: '',
+    reason: '',
+    reference: ''
+  });
+  
   const { toast } = useToast();
 
-  // Load users and system stats
   useEffect(() => {
     loadData();
   }, []);
 
-  // Load users and system stats from backend API
   const loadData = async () => {
     try {
       setLoading(true);
-      // Execute both API calls in parallel for better performance
-      const [{ users: usersData }, systemStats] = await Promise.all([
+      const [
+        { users: usersData }, 
+        systemStats,
+        ordersResponse,
+        workOrdersResponse,
+        workCentersResponse,
+        bomsResponse,
+        stockResponse,
+        reportsResponse
+      ] = await Promise.all([
         userAPI.getAllUsers(),
-        userAPI.getSystemStats()
+        userAPI.getSystemStats(),
+        manufacturingOrderAPI.getAll().catch(() => ({ orders: [] })),
+        workOrderAPI.getAll().catch(() => ({ workOrders: [] })),
+        workCenterAPI.getAll().catch(() => []),
+        bomAPI.getAll().catch(() => ({ boms: [] })),
+        stockLedgerAPI.getAll({ limit: 50 }).catch(() => ({ movements: [] })),
+        profileReportAPI.getAll({ limit: 20 }).catch(() => ({ reports: [] }))
       ]);
       
       setUsers(usersData || []);
+      setManufacturingOrders(ordersResponse.orders || []);
+      setWorkOrders(workOrdersResponse.workOrders || []);
+      setWorkCenters(workCentersResponse || []);
+      setBoms(bomsResponse.boms || []);
+      setStockMovements(stockResponse.movements || []);
+      setProfileReports(reportsResponse.reports || []);
       
-      // Extract and set system statistics from backend response
       setStats({
         totalUsers: systemStats.users?.total || 0,
         activeUsers: systemStats.users?.active || 0,
@@ -84,7 +162,6 @@ export default function Admin() {
     }
   };
 
-  // Create new user
   const handleCreateUser = async () => {
     try {
       if (!newUser.name || !newUser.email || !newUser.password) {
@@ -104,7 +181,7 @@ export default function Admin() {
       
       setShowCreateUser(false);
       setNewUser({ name: '', email: '', password: '', role: 'operator' });
-      loadData(); // Refresh data
+      loadData();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -114,10 +191,8 @@ export default function Admin() {
     }
   };
 
-  // Update user details via admin panel with validation
   const handleUpdateUser = async (userId: string, updates: Partial<User>) => {
     try {
-      // Call API to update user with partial user data
       await userAPI.updateUser(userId, updates);
       toast({
         title: "Success",
@@ -163,15 +238,218 @@ export default function Admin() {
     await handleUpdateUser(user._id, { isActive: !user.isActive });
   };
 
+  // Handle manufacturing order creation
+  const handleCreateManufacturingOrder = async () => {
+    try {
+      // Form validation
+      if (!newOrder.product || !newOrder.quantity || !newOrder.dueDate) {
+        toast({
+          title: "Validation Error",
+          description: "Product name, quantity, and due date are required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const quantity = parseInt(newOrder.quantity);
+      if (isNaN(quantity) || quantity <= 0) {
+        toast({
+          title: "Validation Error",
+          description: "Quantity must be a positive number",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create manufacturing order via API
+      await manufacturingOrderAPI.create({
+        product: newOrder.product,
+        quantity: quantity,
+        priority: newOrder.priority,
+        dueDate: newOrder.dueDate,
+        notes: newOrder.notes
+      });
+
+      toast({
+        title: "Success",
+        description: "Manufacturing order created successfully"
+      });
+      
+      // Reset form and close dialog
+      setNewOrder({
+        product: '',
+        quantity: '',
+        priority: 'medium',
+        dueDate: '',
+        notes: ''
+      });
+      setShowCreateOrder(false);
+      
+      // Refresh data to show new order
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to create manufacturing order",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle work order creation
+  const handleCreateWorkOrder = async () => {
+    try {
+      // Form validation
+      if (!newWorkOrder.operation) {
+        toast({
+          title: "Validation Error",
+          description: "Operation is required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create work order via API (orderNumber will be auto-generated)
+      await workOrderAPI.create({
+        manufacturingOrder: newWorkOrder.operation, // Use operation as manufacturing order for now
+        machine: newWorkOrder.operation,
+        assignedTo: newWorkOrder.assignedTo,
+        startDate: new Date().toISOString(),
+        estimatedHours: newWorkOrder.estimatedHours ? parseFloat(newWorkOrder.estimatedHours) : undefined,
+        instructions: newWorkOrder.instructions
+      });
+
+      toast({
+        title: "Success",
+        description: "Work order created successfully"
+      });
+      
+      // Reset form and close dialog
+      setNewWorkOrder({
+        operation: '',
+        assignedTo: '',
+        priority: 'medium',
+        estimatedHours: '',
+        instructions: ''
+      });
+      setShowCreateWorkOrder(false);
+      
+      // Refresh data to show new work order
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to create work order",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle work center creation
+  const handleCreateWorkCenter = async () => {
+    try {
+      // Form validation
+      if (!newWorkCenter.code || !newWorkCenter.name || !newWorkCenter.location) {
+        toast({
+          title: "Validation Error",
+          description: "Code, name, and location are required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create work center via API
+      await workCenterAPI.create({
+        code: newWorkCenter.code,
+        name: newWorkCenter.name,
+        description: newWorkCenter.description,
+        type: newWorkCenter.type,
+        location: newWorkCenter.location,
+        capacity: newWorkCenter.capacity ? parseInt(newWorkCenter.capacity) : undefined,
+        hourlyRate: newWorkCenter.hourlyRate ? parseFloat(newWorkCenter.hourlyRate) : undefined,
+        departmentId: '507f1f77bcf86cd799439011' // Default department ID for now
+      });
+
+      toast({
+        title: "Success",
+        description: "Work center created successfully"
+      });
+      
+      // Reset form and close dialog
+      setNewWorkCenter({
+        code: '',
+        name: '',
+        description: '',
+        type: 'manufacturing',
+        location: '',
+        capacity: '',
+        hourlyRate: ''
+      });
+      setShowCreateWorkCenter(false);
+      
+      // Refresh data to show new work center
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to create work center",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle stock movement recording
+  const handleRecordMovement = async () => {
+    try {
+      // Form validation
+      if (!newMovement.material || !newMovement.quantity || !newMovement.reason) {
+        toast({
+          title: "Validation Error",
+          description: "Material, quantity, and reason are required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create stock movement via API
+      await stockLedgerAPI.recordMovement({
+        material: newMovement.material,
+        movementType: newMovement.movementType,
+        quantity: parseFloat(newMovement.quantity),
+        reason: newMovement.reason,
+        reference: newMovement.reference,
+        date: new Date().toISOString()
+      });
+
+      toast({
+        title: "Success",
+        description: "Stock movement recorded successfully"
+      });
+      
+      // Reset form and close dialog
+      setNewMovement({
+        material: '',
+        movementType: 'in',
+        quantity: '',
+        reason: '',
+        reference: ''
+      });
+      setShowRecordMovement(false);
+      
+      // Refresh data to show new movement
+      loadData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to record movement",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Role badge colors
   const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'admin': return 'bg-red-100 text-red-800';
-      case 'manager': return 'bg-blue-100 text-blue-800';
-      case 'operator': return 'bg-green-100 text-green-800';
-      case 'inventory': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    return 'bg-green-100 text-green-800'; // Default to operator styling
   };
 
   if (loading) {
@@ -252,10 +530,7 @@ export default function Admin() {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="operator">Operator</SelectItem>
-                    <SelectItem value="inventory">Inventory</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -310,10 +585,7 @@ export default function Admin() {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="operator">Operator</SelectItem>
-                    <SelectItem value="inventory">Inventory</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -386,8 +658,13 @@ export default function Admin() {
       <Tabs defaultValue="users" className="space-y-4">
         <TabsList>
           <TabsTrigger value="users">User Management</TabsTrigger>
+          <TabsTrigger value="orders">Manufacturing Orders</TabsTrigger>
+          <TabsTrigger value="workorders">Work Orders</TabsTrigger>
+          <TabsTrigger value="workcenters">Work Centers</TabsTrigger>
+          <TabsTrigger value="bom">Bill of Materials</TabsTrigger>
+          <TabsTrigger value="stock">Stock Ledger</TabsTrigger>
+          <TabsTrigger value="reports">Profile Reports</TabsTrigger>
           <TabsTrigger value="system">System Settings</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
         
         <TabsContent value="users" className="space-y-4">
@@ -468,6 +745,338 @@ export default function Admin() {
           </Card>
         </TabsContent>
         
+        {/* Manufacturing Orders Tab */}
+        <TabsContent value="orders" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold">Manufacturing Orders</h3>
+              <p className="text-sm text-muted-foreground">Create and manage manufacturing orders</p>
+            </div>
+            <Dialog open={showCreateOrder} onOpenChange={setShowCreateOrder}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create Order
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create Manufacturing Order</DialogTitle>
+                  <DialogDescription>Add a new manufacturing order to the system</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="product">Product Name</Label>
+                    <Input 
+                      id="product"
+                      value={newOrder.product}
+                      onChange={(e) => setNewOrder({ ...newOrder, product: e.target.value })}
+                      placeholder="Enter product name" 
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="quantity">Quantity</Label>
+                    <Input 
+                      id="quantity"
+                      type="number" 
+                      value={newOrder.quantity}
+                      onChange={(e) => setNewOrder({ ...newOrder, quantity: e.target.value })}
+                      placeholder="Enter quantity" 
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="priority">Priority</Label>
+                    <Select 
+                      value={newOrder.priority} 
+                      onValueChange={(value) => setNewOrder({ ...newOrder, priority: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="dueDate">Due Date</Label>
+                    <Input 
+                      id="dueDate"
+                      type="date" 
+                      value={newOrder.dueDate}
+                      onChange={(e) => setNewOrder({ ...newOrder, dueDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea 
+                      id="notes"
+                      value={newOrder.notes}
+                      onChange={(e) => setNewOrder({ ...newOrder, notes: e.target.value })}
+                      placeholder="Enter any notes or special instructions" 
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowCreateOrder(false)}>Cancel</Button>
+                  <Button onClick={handleCreateManufacturingOrder}>Create Order</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+          
+          <Card>
+            <CardContent className="p-6">
+              {manufacturingOrders.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No manufacturing orders found. Create your first order above.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order Number</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {manufacturingOrders.slice(0, 10).map((order: any) => (
+                      <TableRow key={order._id}>
+                        <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                        <TableCell>{order.product || order.productName}</TableCell>
+                        <TableCell>{order.quantity}</TableCell>
+                        <TableCell>
+                          <Badge variant={order.priority === 'urgent' ? 'destructive' : 'default'}>
+                            {order.priority}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={order.status === 'completed' ? 'default' : 'secondary'}>
+                            {order.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(order.dueDate).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* Work Orders Tab */}
+        <TabsContent value="workorders" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold">Work Orders</h3>
+              <p className="text-sm text-muted-foreground">Create and assign work orders</p>
+            </div>
+            <Button className="gap-2" onClick={() => setShowCreateWorkOrder(true)}>
+              <Plus className="h-4 w-4" />
+              Create Work Order
+            </Button>
+          </div>
+          
+          <Card>
+            <CardContent className="p-6">
+              {workOrders.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No work orders found. Create your first work order above.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order Number</TableHead>
+                      <TableHead>Operation</TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {workOrders.slice(0, 10).map((wo: any) => (
+                      <TableRow key={wo._id}>
+                        <TableCell className="font-medium">{wo.orderNumber}</TableCell>
+                        <TableCell>{wo.operation}</TableCell>
+                        <TableCell>{wo.assignedTo}</TableCell>
+                        <TableCell>
+                          <Badge variant={wo.status === 'completed' ? 'default' : 'secondary'}>
+                            {wo.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Work Centers Tab */}
+        <TabsContent value="workcenters" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold">Work Centers</h3>
+              <p className="text-sm text-muted-foreground">Manage production work centers</p>
+            </div>
+            <Button className="gap-2" onClick={() => setShowCreateWorkCenter(true)}>
+              <Plus className="h-4 w-4" />
+              Add Work Center
+            </Button>
+          </div>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center py-8 text-muted-foreground">
+                Work centers management - Create and configure production work centers
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* BOM Tab */}
+        <TabsContent value="bom" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold">Bill of Materials</h3>
+              <p className="text-sm text-muted-foreground">Manage product BOMs</p>
+            </div>
+            <Button className="gap-2" onClick={() => setShowCreateBOM(true)}>
+              <Plus className="h-4 w-4" />
+              Create BOM
+            </Button>
+          </div>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center py-8 text-muted-foreground">
+                BOM management - Define material requirements for products
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Stock Ledger Tab */}
+        <TabsContent value="stock" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold">Stock Ledger</h3>
+              <p className="text-sm text-muted-foreground">Record inventory movements</p>
+            </div>
+            <Button className="gap-2" onClick={() => setShowRecordMovement(true)}>
+              <Plus className="h-4 w-4" />
+              Record Movement
+            </Button>
+          </div>
+          
+          <Card>
+            <CardContent className="p-6">
+              {stockMovements.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No stock movements found. Record your first movement above.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Material</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Reason</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {stockMovements.slice(0, 10).map((movement: any) => (
+                      <TableRow key={movement._id}>
+                        <TableCell>{new Date(movement.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="font-medium">{movement.material}</TableCell>
+                        <TableCell>
+                          <Badge variant={movement.movementType === 'in' ? 'default' : 'secondary'}>
+                            {movement.movementType}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{movement.quantity}</TableCell>
+                        <TableCell>{movement.reason}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Profile Reports Tab */}
+        <TabsContent value="reports" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold">Profile Reports</h3>
+              <p className="text-sm text-muted-foreground">Generate performance reports</p>
+            </div>
+            <Button className="gap-2" onClick={() => setShowCreateReport(true)}>
+              <Plus className="h-4 w-4" />
+              Create Report
+            </Button>
+          </div>
+          
+          <Card>
+            <CardContent className="p-6">
+              {profileReports.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No profile reports found. Create your first report above.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Report ID</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Generated</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {profileReports.slice(0, 10).map((report: any) => (
+                      <TableRow key={report._id}>
+                        <TableCell className="font-medium">{report.reportId}</TableCell>
+                        <TableCell>{report.reportType}</TableCell>
+                        <TableCell>
+                          <Badge variant={report.status === 'approved' ? 'default' : 'secondary'}>
+                            {report.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(report.createdAt).toLocaleDateString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
         <TabsContent value="system" className="space-y-4">
           <Card>
             <CardHeader>
@@ -486,7 +1095,6 @@ export default function Admin() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="operator">Operator</SelectItem>
-                      <SelectItem value="inventory">Inventory</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -496,23 +1104,7 @@ export default function Admin() {
                   <Input type="number" defaultValue="1440" className="w-[200px]" />
                 </div>
                 
-                <div className="grid gap-2">
-                  <Label>Password Policy</Label>
-                  <div className="space-y-2">
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" defaultChecked />
-                      <span className="text-sm">Minimum 8 characters</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" defaultChecked />
-                      <span className="text-sm">Require special characters</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" />
-                      <span className="text-sm">Require uppercase letters</span>
-                    </label>
-                  </div>
-                </div>
+
                 
                 <Button>Save Settings</Button>
               </div>
@@ -530,17 +1122,12 @@ export default function Admin() {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                <div>
-                  <h4 className="text-sm font-medium mb-2">User Activity (Last 30 days)</h4>
-                  <div className="h-32 bg-gray-100 rounded flex items-center justify-center">
-                    <span className="text-muted-foreground">Analytics chart placeholder</span>
-                  </div>
-                </div>
+
                 
                 <div>
                   <h4 className="text-sm font-medium mb-2">Role Distribution</h4>
                   <div className="space-y-2">
-                    {['admin', 'manager', 'operator', 'inventory'].map(role => {
+                    {['operator'].map(role => {
                       const count = users.filter(u => u.role === role).length;
                       const percentage = users.length > 0 ? (count / users.length) * 100 : 0;
                       return (
@@ -565,6 +1152,325 @@ export default function Admin() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Manufacturing Creation Dialogs */}
+      
+      {/* Create Work Order Dialog */}
+      <Dialog open={showCreateWorkOrder} onOpenChange={setShowCreateWorkOrder}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Work Order</DialogTitle>
+            <DialogDescription>
+              Assign operations to workers or work centers
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="operation">Operation</Label>
+              <Input 
+                id="operation" 
+                value={newWorkOrder.operation}
+                onChange={(e) => setNewWorkOrder({ ...newWorkOrder, operation: e.target.value })}
+                placeholder="Operation description" 
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="assignedTo">Assigned To</Label>
+              <Input 
+                id="assignedTo" 
+                value={newWorkOrder.assignedTo}
+                onChange={(e) => setNewWorkOrder({ ...newWorkOrder, assignedTo: e.target.value })}
+                placeholder="Worker or work center" 
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="priority">Priority</Label>
+              <Select 
+                value={newWorkOrder.priority} 
+                onValueChange={(value) => setNewWorkOrder({ ...newWorkOrder, priority: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="estimatedHours">Estimated Hours</Label>
+              <Input 
+                id="estimatedHours" 
+                type="number"
+                value={newWorkOrder.estimatedHours}
+                onChange={(e) => setNewWorkOrder({ ...newWorkOrder, estimatedHours: e.target.value })}
+                placeholder="Estimated completion hours" 
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="instructions">Instructions</Label>
+              <Textarea 
+                id="instructions"
+                value={newWorkOrder.instructions}
+                onChange={(e) => setNewWorkOrder({ ...newWorkOrder, instructions: e.target.value })}
+                placeholder="Work instructions and notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateWorkOrder(false)}>Cancel</Button>
+            <Button onClick={handleCreateWorkOrder}>Create Work Order</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Work Center Dialog */}
+      <Dialog open={showCreateWorkCenter} onOpenChange={setShowCreateWorkCenter}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Work Center</DialogTitle>
+            <DialogDescription>
+              Configure a new production work center
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="wcCode">Work Center Code</Label>
+              <Input 
+                id="wcCode" 
+                value={newWorkCenter.code}
+                onChange={(e) => setNewWorkCenter({ ...newWorkCenter, code: e.target.value })}
+                placeholder="Unique work center code" 
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="wcName">Work Center Name</Label>
+              <Input 
+                id="wcName" 
+                value={newWorkCenter.name}
+                onChange={(e) => setNewWorkCenter({ ...newWorkCenter, name: e.target.value })}
+                placeholder="Work center name" 
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="wcType">Type</Label>
+              <Select 
+                value={newWorkCenter.type} 
+                onValueChange={(value) => setNewWorkCenter({ ...newWorkCenter, type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select work center type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="wcLocation">Location</Label>
+              <Input 
+                id="wcLocation" 
+                value={newWorkCenter.location}
+                onChange={(e) => setNewWorkCenter({ ...newWorkCenter, location: e.target.value })}
+                placeholder="Physical location" 
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="wcCapacity">Capacity (units/hour)</Label>
+              <Input 
+                id="wcCapacity" 
+                type="number" 
+                value={newWorkCenter.capacity}
+                onChange={(e) => setNewWorkCenter({ ...newWorkCenter, capacity: e.target.value })}
+                placeholder="Production capacity per hour" 
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="wcHourlyRate">Hourly Rate ($)</Label>
+              <Input 
+                id="wcHourlyRate" 
+                type="number" 
+                step="0.01"
+                value={newWorkCenter.hourlyRate}
+                onChange={(e) => setNewWorkCenter({ ...newWorkCenter, hourlyRate: e.target.value })}
+                placeholder="Hourly operating rate" 
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="wcDescription">Description</Label>
+              <Textarea 
+                id="wcDescription" 
+                value={newWorkCenter.description}
+                onChange={(e) => setNewWorkCenter({ ...newWorkCenter, description: e.target.value })}
+                placeholder="Work center description and capabilities" 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateWorkCenter(false)}>Cancel</Button>
+            <Button onClick={handleCreateWorkCenter}>Add Work Center</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create BOM Dialog */}
+      <Dialog open={showCreateBOM} onOpenChange={setShowCreateBOM}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Bill of Materials</DialogTitle>
+            <DialogDescription>
+              Define material requirements for a product
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="bomProduct">Product</Label>
+              <Input id="bomProduct" placeholder="Product name" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bomVersion">Version</Label>
+              <Input id="bomVersion" placeholder="BOM version (e.g., v1.0)" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bomQuantity">Base Quantity</Label>
+              <Input id="bomQuantity" type="number" placeholder="Base production quantity" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bomMaterials">Materials Required</Label>
+              <Textarea id="bomMaterials" placeholder="List required materials, quantities, and specifications" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateBOM(false)}>Cancel</Button>
+            <Button type="submit">Create BOM</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Record Movement Dialog */}
+      <Dialog open={showRecordMovement} onOpenChange={setShowRecordMovement}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Stock Movement</DialogTitle>
+            <DialogDescription>
+              Record inventory in/out movements
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="material">Material</Label>
+              <Input 
+                id="material" 
+                placeholder="Material name or code" 
+                value={newMovement.material}
+                onChange={(e) => setNewMovement({ ...newMovement, material: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="movementType">Movement Type</Label>
+              <Select value={newMovement.movementType} onValueChange={(value) => setNewMovement({ ...newMovement, movementType: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select movement type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="in">Stock In</SelectItem>
+                  <SelectItem value="out">Stock Out</SelectItem>
+                  <SelectItem value="transfer">Transfer</SelectItem>
+                  <SelectItem value="adjustment">Adjustment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="smQuantity">Quantity</Label>
+              <Input 
+                id="smQuantity" 
+                type="number" 
+                placeholder="Movement quantity" 
+                value={newMovement.quantity}
+                onChange={(e) => setNewMovement({ ...newMovement, quantity: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="reason">Reason</Label>
+              <Input 
+                id="reason" 
+                placeholder="Reason for movement" 
+                value={newMovement.reason}
+                onChange={(e) => setNewMovement({ ...newMovement, reason: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="reference">Reference</Label>
+              <Input 
+                id="reference" 
+                placeholder="Order number or reference" 
+                value={newMovement.reference}
+                onChange={(e) => setNewMovement({ ...newMovement, reference: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRecordMovement(false)}>Cancel</Button>
+            <Button onClick={handleRecordMovement}>Record Movement</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Report Dialog */}
+      <Dialog open={showCreateReport} onOpenChange={setShowCreateReport}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Profile Report</DialogTitle>
+            <DialogDescription>
+              Generate performance and profile reports
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="reportType">Report Type</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select report type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="production">Production Performance</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="reportPeriod">Period</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select time period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="reportFormat">Format</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="excel">Excel</SelectItem>
+                  <SelectItem value="csv">CSV</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateReport(false)}>Cancel</Button>
+            <Button type="submit">Generate Report</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

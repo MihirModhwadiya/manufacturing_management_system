@@ -3,9 +3,9 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import nodemailer from 'nodemailer';
-import { authenticateToken, authorizeRoles, requireAdmin } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
-const router = express.Router();
+const router = express.Router(); // Create Express router to define API endpoints
 
 // Helper: send email
 const sendEmail = async (to, subject, html) => {
@@ -30,44 +30,48 @@ const sendEmail = async (to, subject, html) => {
   await transporter.sendMail(mailOptions);
 };
 
-// Signup
+// API endpoint: POST /signup - Creates new user account with email verification
 router.post('/signup', async (req, res) => {
   try {
-    // Destructure and extract fields from request body with default role
+    // Extract user input from request body, defaulting role to 'operator' if not provided
     const { name, email, password, confirmPassword, role = 'operator' } = req.body;
     
-    // Basic validation - check all required fields are present
+    // Validate all required fields are present in request
     if (!name || !email || !password || !confirmPassword) {
       return res.status(400).json({ message: 'All fields required.' });
     }
     
+    // Validate email format using regex pattern
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       return res.status(400).json({ message: 'Invalid email format.' });
     }
     
+    // Ensure password meets minimum length requirement for security
     if (password.length < 8) {
       return res.status(400).json({ message: 'Password must be at least 8 characters.' });
     }
     
+    // Verify password and confirmation match to prevent typos
     if (password !== confirmPassword) {
       return res.status(400).json({ message: 'Passwords do not match.' });
     }
 
-    // Validate role
+    // Validate user role against predefined list of allowed roles
     const validRoles = ['admin', 'manager', 'operator', 'inventory'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ message: 'Invalid role specified.' });
     }
     
+    // Check if user with this email already exists to prevent duplicates
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: 'Email already registered.' });
     }
     
-    // Hash password with salt rounds of 10 for security
+    // Hash password using bcrypt with salt rounds of 10 for security
     const passwordHash = await bcrypt.hash(password, 10);
     
-    // Create new user document in database with hashed password
+    // Create new user document in MongoDB with validated data
     const user = await User.create({ 
       name, 
       email, 
@@ -75,8 +79,9 @@ router.post('/signup', async (req, res) => {
       role
     });
     
-    // Email verification token
+    // Generate JWT token for email verification with 1-day expiration
     const emailToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    // Create verification link that user will click in their email
     const verifyLink = `${process.env.CLIENT_URL}/verify/${emailToken}`;
     
     const emailHtml = `
@@ -165,29 +170,34 @@ router.post('/test-login', async (req, res) => {
   }
 });
 
-// Login
+// API endpoint: POST /login - Authenticates user and returns JWT token
 router.post('/login', async (req, res) => {
   try {
+    // Extract login credentials from request body
     const { email, password, role } = req.body;
     
+    // Validate that both email and password are provided
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required.' });
     }
     
+    // Find user in database by email address
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials.' });
     }
     
+    // Check if user has verified their email address
     if (!user.isVerified) {
       return res.status(403).json({ message: 'Please verify your email first.' });
     }
 
+    // Check if user account is active (not deactivated by admin)
     if (!user.isActive) {
       return res.status(403).json({ message: 'Account is deactivated. Contact administrator.' });
     }
     
-    // Compare password with stored hash (using 'passwordHash' field from database)
+    // Compare provided password with stored hash using bcrypt
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       return res.status(400).json({ message: 'Invalid credentials.' });
@@ -299,14 +309,16 @@ router.post('/reset/:token', async (req, res) => {
   }
 });
 
-// Get current user profile (Protected)
+// API endpoint: GET /profile - Returns current user's profile data (requires authentication)
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
+    // Find user by ID from JWT token, excluding password hash from result
     const user = await User.findById(req.user.id).select('-passwordHash');
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
 
+    // Return user profile with safe fields only (no sensitive data)
     res.json({
       user: {
         id: user._id,
@@ -463,28 +475,32 @@ router.post('/users', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// Update user (Admin only)
+// API endpoint: PUT /users/:id - Admin-only route to update any user's information
 router.put('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    // Extract user ID from URL parameters
     const { id } = req.params;
+    // Extract update fields from request body
     const { name, email, role, isActive } = req.body;
 
+    // Find the user to be updated
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
 
-    // Prevent admin from deactivating themselves
+    // Prevent admin from deactivating their own account (safety check)
     if (id === req.user.id && isActive === false) {
       return res.status(400).json({ message: 'You cannot deactivate your own account.' });
     }
 
+    // Validate role is one of the allowed values
     const validRoles = ['admin', 'manager', 'operator', 'inventory'];
     if (role && !validRoles.includes(role)) {
       return res.status(400).json({ message: 'Invalid role specified.' });
     }
 
-    // Update fields
+    // Update user fields only if they are provided in request
     if (name) user.name = name;
     if (email) user.email = email;
     if (role) user.role = role;

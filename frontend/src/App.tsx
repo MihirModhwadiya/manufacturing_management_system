@@ -6,18 +6,20 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdminRoute } from "@/components/AdminRoute";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Dashboard from "./pages/Dashboard";
-import ManufacturingOrders from "./pages/ManufacturingOrders";
-import WorkOrders from "./pages/WorkOrders";
-import BOM from "./pages/BOM";
-import StockLedger from "./pages/StockLedger";
-import Profile from "./pages/Profile";
-import Admin from "./pages/Admin";
-import NotFound from "./pages/NotFound";
+import Login from "@/pages/Login";
+import Signup from "@/pages/Signup";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
+import Dashboard from "@/pages/Dashboard";
+import ManufacturingOrders from "@/pages/ManufacturingOrders";
+import WorkOrders from "@/pages/WorkOrders";
+import WorkCenters from "@/pages/WorkCenters";
+import BOM from "@/pages/BOM";
+import StockLedger from "@/pages/StockLedger";
+import Reports from "@/pages/Reports";
+import Profile from "@/pages/Profile";
+import Admin from "@/pages/Admin";
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -59,8 +61,11 @@ const App = () => (
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="manufacturing-orders" element={<ManufacturingOrders />} />
               <Route path="work-orders" element={<WorkOrders />} />
+              <Route path="work-centers" element={<WorkCenters />} />
+              {/* <Route path="profile-reports" element={<ProfileReports />} /> */}
               <Route path="bom" element={<BOM />} />
               <Route path="stock-ledger" element={<StockLedger />} />
+              <Route path="reports" element={<Reports />} />
               <Route path="profile" element={<Profile />} />
               <Route 
                 path="admin" 
