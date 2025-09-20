@@ -1,6 +1,6 @@
 import express from 'express';
 import ManufacturingOrder from '../models/ManufacturingOrder.js';
-import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -22,8 +22,8 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// API endpoint: POST /manufacturing-orders - Create new manufacturing order (admin only)
-router.post('/', authenticateToken, requireAdmin, async (req, res) => {
+// API endpoint: POST /manufacturing-orders - Create new manufacturing order (admin/manager only)
+router.post('/', authenticateToken, authorizeRoles('admin', 'manager'), async (req, res) => {
   try {
     // Extract order data from request body
     const { product, quantity, priority, dueDate, notes } = req.body;
@@ -54,19 +54,19 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       createdBy: req.user.id // Track which admin created the order
     });
     
-    res.status(201).json({
-      success: true,
-      message: 'Manufacturing order created successfully',
-      order: newOrder
-    });
+    // Populate the created order with creator info for consistency
+    const populatedOrder = await ManufacturingOrder.findById(newOrder._id)
+      .populate('createdBy', 'name email');
+    
+    res.status(201).json(populatedOrder);
   } catch (error) {
     console.error('Create manufacturing order error:', error);
     res.status(500).json({ message: 'Server error while creating order.' });
   }
 });
 
-// API endpoint: PUT /manufacturing-orders/:id - Update manufacturing order (admin only)
-router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
+// API endpoint: PUT /manufacturing-orders/:id - Update manufacturing order (admin/manager only)
+router.put('/:id', authenticateToken, authorizeRoles('admin', 'manager'), async (req, res) => {
   try {
     // Extract order ID from URL parameters
     const { id } = req.params;
@@ -110,7 +110,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // API endpoint: DELETE /manufacturing-orders/:id - Delete manufacturing order (admin only)
-router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     // Extract order ID from URL parameters
     const { id } = req.params;

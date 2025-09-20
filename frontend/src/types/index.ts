@@ -8,6 +8,18 @@ export interface User {
   email: string;
   role: UserRole;
   avatar?: string;
+  department?: string;
+  employeeId?: string;
+  phone?: string;
+  notifications?: {
+    email: boolean;
+    workOrders: boolean;
+    stockAlerts: boolean;
+    systemUpdates: boolean;
+  };
+  isActive?: boolean;
+  isVerified?: boolean;
+  lastLogin?: string;
 }
 
 export type OrderStatus = 'planned' | 'in-progress' | 'completed' | 'delayed' | 'cancelled';

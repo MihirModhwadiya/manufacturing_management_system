@@ -12,7 +12,9 @@ import {
   Settings,
   LogOut,
   Factory,
-  Shield
+  Shield,
+  CheckCircle,
+  Users
 } from 'lucide-react';
 
 const navigationItems = [
@@ -53,10 +55,34 @@ const navigationItems = [
     roles: ['admin', 'inventory', 'operator'] // Operators record movements, inventory manages stock
   },
   {
+    title: 'Inventory Management',
+    href: '/inventory-management',
+    icon: Package,
+    roles: ['admin', 'manager', 'inventory'] // Advanced inventory features for management roles
+  },
+  {
+    title: 'Quality Control',
+    href: '/quality-control',
+    icon: CheckCircle,
+    roles: ['admin', 'manager', 'operator'] // Quality inspections accessible to production roles
+  },
+  {
+    title: 'Maintenance',
+    href: '/maintenance',
+    icon: Settings,
+    roles: ['admin', 'manager'] // Maintenance management for admin and managers
+  },
+  {
     title: 'Reports',
     href: '/reports',
     icon: FileText,
     roles: ['admin', 'manager'] // Only admin and manager see overall reports
+  },
+  {
+    title: 'User Management',
+    href: '/user-management',
+    icon: Users,
+    roles: ['admin'] // Only admin can manage users
   },
   {
     title: 'Admin Panel',

@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { manufacturingOrderAPI, workOrderAPI, dashboardAPI } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
+import { NotificationTest } from '@/components/notifications/NotificationTest';
 import { AlertTriangle, TrendingUp, Activity, Clock, Loader2 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -262,6 +263,11 @@ export default function Dashboard() {
               )}
             </div>
           </CardContent>
+        </Card>
+
+        {/* Notification Test */}
+        <Card>
+          <NotificationTest />
         </Card>
       </div>
     </div>

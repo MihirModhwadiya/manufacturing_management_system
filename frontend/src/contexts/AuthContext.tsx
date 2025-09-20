@@ -10,6 +10,7 @@ interface AuthContextType {
   user: User | null;                                           // Current authenticated user or null
   login: (email: string, password: string) => Promise<boolean>; // Login function returning success boolean
   logout: () => void;                                          // Logout function to clear session
+  updateUser: (updatedUser: User) => void;                    // Function to update user data
   isAuthenticated: boolean;                                    // Boolean indicating if user is logged in
   loading: boolean;                                            // Loading state during auth operations
 }
@@ -99,12 +100,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null); // Reset user state to null, triggering UI updates
   };
 
+  // Function: updates user data in state and localStorage
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser); // Update React state with new user data
+    localStorage.setItem('user', JSON.stringify(updatedUser)); // Update stored user data
+  };
+
   return (
     // Context Provider: makes authentication data available to all child components
     <AuthContext.Provider value={{
       user,                    // Current authenticated user object or null
       login,                   // Login function for authentication
       logout,                  // Logout function to clear session
+      updateUser,              // Function to update user data
       isAuthenticated: !!user, // Boolean conversion: true if user exists, false if null
       loading                  // Loading state during auth operations
     }}>

@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import nodemailer from 'nodemailer';
-import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
 
 const router = express.Router(); // Create Express router to define API endpoints
 
@@ -41,8 +41,8 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ message: 'All fields required.' });
     }
     
-    // Validate email format using regex pattern
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    // Validate email format using proper regex pattern (only one @ symbol allowed)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ message: 'Invalid email format.' });
     }
     
@@ -137,38 +137,7 @@ router.get('/verify/:token', async (req, res) => {
   }
 });
 
-// Test login route for debugging
-router.post('/test-login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    console.log('🔍 Test login attempt:', email);
-    console.log('   Input password:', password);
-    
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: 'User not found' });
-    }
-    
-    console.log('✅ User found:', user.name, user.role);
-    console.log('   User object keys:', Object.keys(user.toObject()));
-    console.log('   Password field in user:', 'password' in user);
-    console.log('   Password field value exists:', !!user.password);
-    
-    // Return debug info
-    res.json({
-      message: 'Debug info',
-      userKeys: Object.keys(user.toObject()),
-      hasPassword: !!user.password,
-      passwordType: typeof user.password,
-      inputPassword: password,
-      inputType: typeof password
-    });
-    
-  } catch (error) {
-    console.error('❌ Test login error:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
+
 
 // API endpoint: POST /login - Authenticates user and returns JWT token
 router.post('/login', async (req, res) => {
@@ -205,7 +174,7 @@ router.post('/login', async (req, res) => {
 
     // Optional role validation - if role is provided, it must match
     if (role && user.role !== role) {
-      return res.status(403).json({ message: `Access denied. Expected role: ${user.role}` });
+      return res.status(403).json({ message: `Access denied. Your role is ${user.role}, but ${role} was expected.` });
     }
 
     // Update last login
@@ -328,7 +297,9 @@ router.get('/profile', authenticateToken, async (req, res) => {
         avatar: user.avatar,
         department: user.department,
         employeeId: user.employeeId,
+        notifications: user.notifications,
         isActive: user.isActive,
+        isVerified: user.isVerified,
         lastLogin: user.lastLogin,
         createdAt: user.createdAt
       }
@@ -342,12 +313,13 @@ router.get('/profile', authenticateToken, async (req, res) => {
 // Update user profile (Protected)
 router.put('/profile', authenticateToken, async (req, res) => {
   try {
-    const { name, department, employeeId } = req.body;
+    const { name, department, employeeId, notifications } = req.body;
     const updateData = {};
 
     if (name) updateData.name = name;
     if (department) updateData.department = department;
     if (employeeId) updateData.employeeId = employeeId;
+    if (notifications) updateData.notifications = notifications;
 
     // Generate new avatar if name changed
     if (name) {
@@ -369,7 +341,11 @@ router.put('/profile', authenticateToken, async (req, res) => {
         role: user.role,
         avatar: user.avatar,
         department: user.department,
-        employeeId: user.employeeId
+        employeeId: user.employeeId,
+        notifications: user.notifications,
+        isActive: user.isActive,
+        isVerified: user.isVerified,
+        lastLogin: user.lastLogin
       }
     });
   } catch (error) {
@@ -413,7 +389,7 @@ router.put('/change-password', authenticateToken, async (req, res) => {
 });
 
 // Get all users (Admin only)
-router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/users', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     const users = await User.find().select('-passwordHash').sort({ createdAt: -1 });
     res.json({ users });
@@ -424,7 +400,7 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // Create user (Admin only) - allows admins to create users directly
-router.post('/users', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/users', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     // Extract user data from request body for admin user creation
     const { name, email, password, role, department, employeeId } = req.body;
@@ -476,7 +452,7 @@ router.post('/users', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // API endpoint: PUT /users/:id - Admin-only route to update any user's information
-router.put('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/users/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     // Extract user ID from URL parameters
     const { id } = req.params;
@@ -525,7 +501,7 @@ router.put('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // Delete user (Admin only)
-router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/users/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -549,7 +525,7 @@ router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) =>
 });
 
 // Get system statistics (Admin only)
-router.get('/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/admin/stats', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     // Get user counts by role
     const userStats = await User.aggregate([
@@ -564,7 +540,6 @@ router.get('/admin/stats', authenticateToken, requireAdmin, async (req, res) => 
     const totalUsers = await User.countDocuments();
     const activeUsers = await User.countDocuments({ isActive: true });
 
-    // Mock manufacturing data for now - can be replaced with real collections later
     const stats = {
       users: {
         total: totalUsers,
@@ -575,15 +550,8 @@ router.get('/admin/stats', authenticateToken, requireAdmin, async (req, res) => 
           return acc;
         }, {})
       },
-      manufacturing: {
-        orders: 12,
-        workOrders: 28,
-        completedOrders: 8,
-        pendingOrders: 4
-      },
       system: {
         uptime: process.uptime(),
-        memoryUsage: process.memoryUsage(),
         nodeVersion: process.version
       }
     };

@@ -68,7 +68,17 @@ export const authAPI = {
     return response.data;
   },
 
-  updateProfile: async (profileData: { name?: string; department?: string; employeeId?: string }) => {
+  updateProfile: async (profileData: { 
+    name?: string; 
+    department?: string; 
+    employeeId?: string; 
+    notifications?: {
+      email: boolean;
+      workOrders: boolean;
+      stockAlerts: boolean;
+      systemUpdates: boolean;
+    };
+  }) => {
     const response = await API.put('/api/auth/profile', profileData);
     return response.data;
   },
@@ -648,6 +658,259 @@ export const dashboardAPI = {
   getActivity: async (limit?: number) => {
     const response = await API.get('/api/dashboard/activity', { 
       params: { limit } 
+    });
+    return response.data;
+  }
+};
+
+// Quality Control API: manages quality inspections and metrics
+export const qualityControlAPI = {
+  // Get all quality inspections with filtering and pagination
+  getInspections: async (filters?: any) => {
+    const response = await API.get('/api/quality-control', { params: filters });
+    return response.data;
+  },
+
+  // Get specific quality inspection by ID
+  getInspection: async (id: string) => {
+    const response = await API.get(`/api/quality-control/${id}`);
+    return response.data;
+  },
+
+  // Create new quality inspection
+  createInspection: async (inspectionData: any) => {
+    const response = await API.post('/api/quality-control', inspectionData);
+    return response.data;
+  },
+
+  // Update quality inspection
+  updateInspection: async (id: string, inspectionData: any) => {
+    const response = await API.put(`/api/quality-control/${id}`, inspectionData);
+    return response.data;
+  },
+
+  // Delete quality inspection
+  deleteInspection: async (id: string) => {
+    const response = await API.delete(`/api/quality-control/${id}`);
+    return response.data;
+  },
+
+  // Get quality metrics and statistics
+  getMetrics: async (dateRange?: any) => {
+    const response = await API.get('/api/quality-control/metrics/overview', {
+      params: dateRange
+    });
+    return response.data;
+  }
+};
+
+// Maintenance API: manages equipment and maintenance schedules
+export const maintenanceAPI = {
+  // Get all equipment with filtering
+  getEquipment: async (filters?: any) => {
+    const response = await API.get('/api/maintenance/equipment', { params: filters });
+    return response.data;
+  },
+
+  // Get specific equipment by ID
+  getEquipmentById: async (id: string) => {
+    const response = await API.get(`/api/maintenance/equipment/${id}`);
+    return response.data;
+  },
+
+  // Create new equipment
+  createEquipment: async (equipmentData: any) => {
+    const response = await API.post('/api/maintenance/equipment', equipmentData);
+    return response.data;
+  },
+
+  // Update equipment
+  updateEquipment: async (id: string, equipmentData: any) => {
+    const response = await API.put(`/api/maintenance/equipment/${id}`, equipmentData);
+    return response.data;
+  },
+
+  // Delete equipment
+  deleteEquipment: async (id: string) => {
+    const response = await API.delete(`/api/maintenance/equipment/${id}`);
+    return response.data;
+  },
+
+  // Get all maintenance schedules
+  getSchedules: async (filters?: any) => {
+    const response = await API.get('/api/maintenance/schedules', { params: filters });
+    return response.data;
+  },
+
+  // Create new maintenance schedule
+  createSchedule: async (scheduleData: any) => {
+    const response = await API.post('/api/maintenance/schedules', scheduleData);
+    return response.data;
+  },
+
+  // Update maintenance schedule
+  updateSchedule: async (id: string, scheduleData: any) => {
+    const response = await API.put(`/api/maintenance/schedules/${id}`, scheduleData);
+    return response.data;
+  },
+
+  // Get maintenance metrics
+  getMetrics: async (dateRange?: any) => {
+    const response = await API.get('/api/maintenance/metrics/overview', {
+      params: dateRange
+    });
+    return response.data;
+  }
+};
+
+// Admin API: administrative functions and user management
+export const adminAPI = {
+  // Get all users with advanced filtering
+  getAllUsers: async (filters?: any) => {
+    const response = await API.get('/api/admin/users', { params: filters });
+    return response.data;
+  },
+
+  // Create new user
+  createUser: async (userData: any) => {
+    const response = await API.post('/api/admin/users', userData);
+    return response.data;
+  },
+
+  // Update user
+  updateUser: async (userId: string, userData: any) => {
+    const response = await API.put(`/api/admin/users/${userId}`, userData);
+    return response.data;
+  },
+
+  // Delete user
+  deleteUser: async (userId: string) => {
+    const response = await API.delete(`/api/admin/users/${userId}`);
+    return response.data;
+  },
+
+  // Get user activities/audit log
+  getUserActivities: async (filters?: any) => {
+    const response = await API.get('/api/admin/activities', { params: filters });
+    return response.data;
+  },
+
+  // Get user statistics
+  getUserStats: async () => {
+    const response = await API.get('/api/admin/stats');
+    return response.data;
+  },
+
+  // Get system health metrics
+  getSystemHealth: async () => {
+    const response = await API.get('/api/admin/system-health');
+    return response.data;
+  }
+};
+
+// Advanced Inventory Management API functions
+export const inventoryAPI = {
+  // Get all inventory items with advanced filtering
+  getItems: async (params = {}) => {
+    const response = await API.get('/api/inventory/items', { params });
+    return response.data;
+  },
+
+  // Get single inventory item with movement history
+  getItem: async (id: string) => {
+    const response = await API.get(`/api/inventory/items/${id}`);
+    return response.data;
+  },
+
+  // Create new inventory item
+  createItem: async (itemData: any) => {
+    const response = await API.post('/api/inventory/items', itemData);
+    return response.data;
+  },
+
+  // Update inventory item
+  updateItem: async (id: string, itemData: any) => {
+    const response = await API.put(`/api/inventory/items/${id}`, itemData);
+    return response.data;
+  },
+
+  // Delete inventory item
+  deleteItem: async (id: string) => {
+    const response = await API.delete(`/api/inventory/items/${id}`);
+    return response.data;
+  },
+
+  // Get all suppliers
+  getSuppliers: async (params = {}) => {
+    const response = await API.get('/api/inventory/suppliers', { params });
+    return response.data;
+  },
+
+  // Create new supplier
+  createSupplier: async (supplierData: any) => {
+    const response = await API.post('/api/inventory/suppliers', supplierData);
+    return response.data;
+  },
+
+  // Update supplier
+  updateSupplier: async (id: string, supplierData: any) => {
+    const response = await API.put(`/api/inventory/suppliers/${id}`, supplierData);
+    return response.data;
+  },
+
+  // Get reorder alerts
+  getReorderAlerts: async (params = {}) => {
+    const response = await API.get('/api/inventory/reorder-alerts', { params });
+    return response.data;
+  },
+
+  // Create reorder alert
+  createReorderAlert: async (alertData: any) => {
+    const response = await API.post('/api/inventory/reorder-alerts', alertData);
+    return response.data;
+  },
+
+  // Get inventory forecasts
+  getForecasts: async (params = {}) => {
+    const response = await API.get('/api/inventory/forecasts', { params });
+    return response.data;
+  },
+
+  // Generate new forecasts
+  generateForecasts: async () => {
+    const response = await API.post('/api/inventory/forecasts/generate');
+    return response.data;
+  },
+
+  // Get inventory analytics
+  getAnalytics: async (params = {}) => {
+    const response = await API.get('/api/inventory/analytics', { params });
+    return response.data;
+  },
+
+  // Stock movement operations
+  recordMovement: async (movementData: any) => {
+    const response = await API.post('/api/inventory/movements', movementData);
+    return response.data;
+  },
+
+  // Get movement history
+  getMovements: async (params = {}) => {
+    const response = await API.get('/api/inventory/movements', { params });
+    return response.data;
+  },
+
+  // Bulk operations
+  bulkUpdateItems: async (updates: any[]) => {
+    const response = await API.post('/api/inventory/items/bulk-update', { updates });
+    return response.data;
+  },
+
+  // Export inventory data
+  exportInventory: async (format = 'csv', filters = {}) => {
+    const response = await API.get('/api/inventory/export', {
+      params: { format, ...filters },
+      responseType: 'blob'
     });
     return response.data;
   }

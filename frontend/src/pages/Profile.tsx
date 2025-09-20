@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,106 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
-import { User, Mail, Shield, Bell, Settings, Save, Eye, EyeOff } from 'lucide-react';
+import { authAPI } from '@/lib/api';
+import { toast } from 'sonner';
+import { User, Mail, Shield, Bell, Settings, Save, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // Profile form state
+  const [profileData, setProfileData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    department: user?.department || '',
+    employeeId: user?.employeeId || '',
+    phone: user?.phone || ''
+  });
+
+  // Password form state
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  // Notification preferences state
+  const [notifications, setNotifications] = useState({
+    email: user?.notifications?.email ?? true,
+    workOrders: user?.notifications?.workOrders ?? true,
+    stockAlerts: user?.notifications?.stockAlerts ?? true,
+    systemUpdates: user?.notifications?.systemUpdates ?? false
+  });
+
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        name: user.name || '',
+        email: user.email || '',
+        department: user.department || '',
+        employeeId: user.employeeId || '',
+        phone: user.phone || ''
+      });
+      setNotifications({
+        email: user.notifications?.email ?? true,
+        workOrders: user.notifications?.workOrders ?? true,
+        stockAlerts: user.notifications?.stockAlerts ?? true,
+        systemUpdates: user.notifications?.systemUpdates ?? false
+      });
+    }
+  }, [user]);
+
+  const handleProfileUpdate = async () => {
+    try {
+      setLoading(true);
+      const { email, phone, ...updateData } = profileData; // Don't send email/phone for now
+      
+      const response = await authAPI.updateProfile({
+        ...updateData,
+        notifications
+      });
+      
+      updateUser(response.user);
+      toast.success('Profile updated successfully');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    try {
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        toast.error('New passwords do not match');
+        return;
+      }
+      
+      if (passwordData.newPassword.length < 8) {
+        toast.error('Password must be at least 8 characters');
+        return;
+      }
+
+      setPasswordLoading(true);
+      await authAPI.changePassword(
+        passwordData.currentPassword,
+        passwordData.newPassword,
+        passwordData.confirmPassword
+      );
+      
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      toast.success('Password changed successfully');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to change password');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -52,33 +145,66 @@ export default function Profile() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
-                <Input id="name" defaultValue={user?.name} />
+                <Input 
+                  id="name" 
+                  value={profileData.name}
+                  onChange={(e) => setProfileData({...profileData, name: e.target.value})}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" defaultValue={user?.email} />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  value={profileData.email}
+                  disabled 
+                  className="bg-gray-50"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
-                <Input id="role" defaultValue={user?.role} disabled className="capitalize" />
+                <Input id="role" value={user?.role} disabled className="capitalize bg-gray-50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="department">Department</Label>
-                <Input id="department" defaultValue="Manufacturing" />
+                <Input 
+                  id="department" 
+                  value={profileData.department}
+                  onChange={(e) => setProfileData({...profileData, department: e.target.value})}
+                  placeholder="e.g., Manufacturing, Quality Control"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="employee-id">Employee ID</Label>
-                <Input id="employee-id" defaultValue={`EMP-${user?.id?.padStart(4, '0')}`} />
+                <Input 
+                  id="employee-id" 
+                  value={profileData.employeeId}
+                  onChange={(e) => setProfileData({...profileData, employeeId: e.target.value})}
+                  placeholder="e.g., EMP-001"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" placeholder="+1 (555) 123-4567" />
+                <Input 
+                  id="phone" 
+                  value={profileData.phone}
+                  onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
+                  placeholder="+1 (555) 123-4567" 
+                />
               </div>
             </div>
 
             <div className="flex justify-end">
-              <Button className="flex items-center gap-2">
-                <Save className="h-4 w-4" />
+              <Button 
+                className="flex items-center gap-2"
+                onClick={handleProfileUpdate}
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
                 Save Changes
               </Button>
             </div>
@@ -102,6 +228,8 @@ export default function Profile() {
                   <Input 
                     id="current-password" 
                     type={showCurrentPassword ? "text" : "password"}
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
                   />
                   <Button
                     type="button"
@@ -124,6 +252,8 @@ export default function Profile() {
                   <Input 
                     id="new-password" 
                     type={showNewPassword ? "text" : "password"}
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
                   />
                   <Button
                     type="button"
@@ -146,6 +276,8 @@ export default function Profile() {
                   <Input 
                     id="confirm-password" 
                     type={showConfirmPassword ? "text" : "password"}
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
                   />
                   <Button
                     type="button"
@@ -162,7 +294,15 @@ export default function Profile() {
                   </Button>
                 </div>
               </div>
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={handlePasswordChange}
+                disabled={passwordLoading}
+              >
+                {passwordLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
                 Update Password
               </Button>
             </CardContent>
@@ -182,7 +322,10 @@ export default function Profile() {
                   <Label className="text-sm font-medium">Email Notifications</Label>
                   <p className="text-xs text-muted-foreground">Receive notifications via email</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch 
+                  checked={notifications.email}
+                  onCheckedChange={(checked) => setNotifications({...notifications, email: checked})}
+                />
               </div>
               
               <div className="flex items-center justify-between">
@@ -190,7 +333,10 @@ export default function Profile() {
                   <Label className="text-sm font-medium">Work Order Alerts</Label>
                   <p className="text-xs text-muted-foreground">Get notified about work order updates</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch 
+                  checked={notifications.workOrders}
+                  onCheckedChange={(checked) => setNotifications({...notifications, workOrders: checked})}
+                />
               </div>
               
               <div className="flex items-center justify-between">
@@ -198,15 +344,21 @@ export default function Profile() {
                   <Label className="text-sm font-medium">Stock Alerts</Label>
                   <p className="text-xs text-muted-foreground">Low stock level notifications</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch 
+                  checked={notifications.stockAlerts}
+                  onCheckedChange={(checked) => setNotifications({...notifications, stockAlerts: checked})}
+                />
               </div>
               
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="text-sm font-medium">Production Updates</Label>
-                  <p className="text-xs text-muted-foreground">Manufacturing order status changes</p>
+                  <Label className="text-sm font-medium">System Updates</Label>
+                  <p className="text-xs text-muted-foreground">System maintenance and feature updates</p>
                 </div>
-                <Switch defaultChecked />
+                <Switch 
+                  checked={notifications.systemUpdates}
+                  onCheckedChange={(checked) => setNotifications({...notifications, systemUpdates: checked})}
+                />
               </div>
             </CardContent>
           </Card>

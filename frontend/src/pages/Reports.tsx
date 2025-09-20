@@ -8,9 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/components/ui/use-toast';
+import { Header } from '@/components/layout/Header';
+import { AnalyticsCharts } from '@/components/analytics/AnalyticsCharts';
+import { AdvancedKPIs } from '@/components/analytics/AdvancedKPIs';
 import { 
   FileText, BarChart3, TrendingUp, Clock, Target, Award, 
-  Download, Calendar, Filter, PieChart, Activity, DollarSign 
+  Download, Calendar, Filter, PieChart, Activity, DollarSign,
+  CheckCircle, Gauge, Users, Package
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { manufacturingOrderAPI, workOrderAPI, workCenterAPI, profileReportAPI, userAPI } from '@/lib/api';
@@ -231,38 +235,44 @@ const Reports = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
-          <p className="text-gray-600">Comprehensive business intelligence and performance metrics</p>
-        </div>
-        
-        {/* Date Range Filter */}
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Label>From:</Label>
-            <Input
-              type="date"
-              value={dateRange.startDate}
-              onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
-              className="w-40"
-            />
+      <Header 
+        title="Reports & Analytics"
+        subtitle="Comprehensive business intelligence and performance metrics"
+      />
+      
+      {/* Date Range Filter */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Label>From:</Label>
+                <Input
+                  type="date"
+                  value={dateRange.startDate}
+                  onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
+                  className="w-40"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Label>To:</Label>
+                <Input
+                  type="date"
+                  value={dateRange.endDate}
+                  onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
+                  className="w-40"
+                />
+              </div>
+            </div>
+            <Button variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Export Report
+            </Button>
           </div>
-          <div className="flex items-center space-x-2">
-            <Label>To:</Label>
-            <Input
-              type="date"
-              value={dateRange.endDate}
-              onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
-              className="w-40"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Overview Cards */}
+        </CardContent>
+      </Card>      {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <Card>
           <CardContent className="flex items-center p-6">
@@ -327,15 +337,56 @@ const Reports = () => {
 
       {/* Main Content Tabs */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="production">Production</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="quality">Quality</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-4">
+        <TabsContent value="overview" className="space-y-6">
+          {/* Quick KPI Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">OEE</p>
+                  <p className="text-2xl font-bold text-green-600">87.5%</p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-green-600" />
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Quality Score</p>
+                  <p className="text-2xl font-bold text-blue-600">98.7%</p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-blue-600" />
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Efficiency</p>
+                  <p className="text-2xl font-bold text-orange-600">94.2%</p>
+                </div>
+                <Gauge className="h-8 w-8 text-orange-600" />
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">On-Time Rate</p>
+                  <p className="text-2xl font-bold text-purple-600">96.8%</p>
+                </div>
+                <Clock className="h-8 w-8 text-purple-600" />
+              </div>
+            </Card>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
@@ -391,6 +442,15 @@ const Reports = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Analytics Tab */}
+        <TabsContent value="analytics" className="space-y-6">
+          {/* Advanced KPIs */}
+          <AdvancedKPIs />
+          
+          {/* Analytics Charts */}
+          <AnalyticsCharts />
         </TabsContent>
 
         {/* Production Tab */}

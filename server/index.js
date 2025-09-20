@@ -15,6 +15,10 @@ import profileReportRoutes from './routes/profileReports.js'; // Profile report 
 import exportRoutes from './routes/export.js'; // Data export routes
 import dashboardRoutes from './routes/dashboard.js'; // Dashboard analytics routes
 import materialRoutes from './routes/materials.js'; // Material management routes
+import qualityControlRoutes from './routes/qualityControl.js'; // Quality control and inspections
+import maintenanceRoutes from './routes/maintenance.js'; // Equipment maintenance management
+import adminRoutes from './routes/admin.js'; // Administrative functions and user management
+import inventoryRoutes from './routes/inventory.js'; // Advanced inventory management
 
 dotenv.config();
 
@@ -51,6 +55,10 @@ app.use('/api/profile-reports', profileReportRoutes); // Profile report manageme
 app.use('/api/export', exportRoutes); // Data export functionality
 app.use('/api/dashboard', dashboardRoutes); // Dashboard analytics and KPIs
 app.use('/api/materials', materialRoutes); // Material management
+app.use('/api/quality-control', qualityControlRoutes); // Quality control and inspections
+app.use('/api/maintenance', maintenanceRoutes); // Equipment maintenance management
+app.use('/api/admin', adminRoutes); // Administrative functions and user management
+app.use('/api/inventory', inventoryRoutes); // Advanced inventory management
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

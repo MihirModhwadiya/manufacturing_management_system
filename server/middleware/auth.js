@@ -25,7 +25,8 @@ export const authenticateToken = async (req, res, next) => {
 
     // Attach user data to request
     req.user = {
-      id: user._id,
+      userId: user._id, // Changed from id to userId for consistency
+      id: user._id, // Keep id for backward compatibility
       email: user.email,
       role: user.role,
       name: user.name
@@ -63,6 +64,9 @@ export const authorizeRoles = (...allowedRoles) => {
 
 // Helper function to check if user has admin privileges
 export const requireAdmin = authorizeRoles('admin');
+
+// Alternative admin authorization (alias for requireAdmin)
+export const authorizeAdmin = authorizeRoles('admin');
 
 // Helper function to check if user has manager or admin privileges
 export const requireManagerOrAdmin = authorizeRoles('admin', 'manager');
