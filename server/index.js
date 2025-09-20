@@ -7,10 +7,41 @@ import authRoutes from './routes/auth.js';
 dotenv.config();
 
 const app = express();
-app.use(express.json());
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 
+// Middleware
+app.use(express.json());
+
+// CORS configuration - allow all common frontend ports
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:8080',
+    process.env.CLIENT_URL
+  ].filter(Boolean), // Remove any undefined values
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+app.use(cors(corsOptions));
+
+// Routes
 app.use('/api/auth', authRoutes);
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    message: 'ManufactureERP API is running', 
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
+// 404 handler for undefined routes
+app.use('*', (req, res) => {
+  res.status(404).json({ message: `Route ${req.originalUrl} not found` });
+});
 
 const PORT = process.env.PORT || 5000;
 

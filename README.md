@@ -1,6 +1,6 @@
-# 🔐 MERN Auth System with Vite
+# 🏭 ManufactureERP - Role-Based Authentication System
 
-A full-featured authentication system built with the MERN stack (MongoDB, Express.js, React TypeScript + Vite, Node.js) featuring modern UI, email verification, and secure authentication.
+A complete manufacturing ERP system with role-based authentication built with the MERN stack (MongoDB, Express.js, React TypeScript + Vite, Node.js) featuring modern UI, role-based access control, and secure JWT authentication.
 
 [![React](https://img.shields.io/badge/React-18+-61DAFB?style=flat&logo=react)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5+-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
@@ -10,14 +10,16 @@ A full-featured authentication system built with the MERN stack (MongoDB, Expres
 
 ## ✨ Features
 
-- 🔐 **Complete Authentication System**: Signup, Login, Password Reset
+- 🔐 **Role-Based Authentication**: 4-tier access control (Admin, Manager, Operator, Inventory)
+- 🏭 **Manufacturing ERP UI**: Complete production management interface
 - 📧 **Email Verification**: Secure email verification with automatic redirects
 - 👁️ **Password Visibility Toggle**: Show/hide password functionality on all forms
 - 🚀 **Lightning Fast Development**: Powered by Vite with HMR
-- 🔒 **Secure**: JWT tokens, bcrypt hashing, input validation
-- 📱 **Responsive Design**: Works on all devices with styled-components
-- 🎨 **Modern UI**: Clean, professional interface with TypeScript
+- 🔒 **Secure**: JWT tokens with roles, bcrypt hashing, RBAC middleware
+- 📱 **Responsive Design**: Modern UI with Tailwind CSS and shadcn/ui
+- 🎨 **Professional Interface**: Manufacturing-focused dashboard and components
 - 🛡️ **Form Validation**: Client-side and server-side validation
+- 🌐 **CORS Configured**: Multi-port development support
 
 ## 🚀 Quick Start
 
@@ -63,7 +65,7 @@ A full-featured authentication system built with the MERN stack (MongoDB, Expres
    
    # Server
    PORT=5000
-   CLIENT_URL=http://localhost:3000
+   CLIENT_URL=http://localhost:8080
    
    # Email (Gmail SMTP)
    EMAIL_USER=your_email@gmail.com
@@ -92,8 +94,9 @@ A full-featured authentication system built with the MERN stack (MongoDB, Expres
    ```
 
 5. **Access the Application**
-   - Frontend: http://localhost:3000
+   - Frontend: http://localhost:8080 (Manufacturing ERP UI)
    - Backend API: http://localhost:5000
+   - Alternative Frontend: http://localhost:3000 or http://localhost:5173
 
 ## 📁 Project Structure
 
@@ -120,13 +123,32 @@ oodo/
 
 ## 🔌 API Endpoints
 
+### Authentication Endpoints
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/auth/signup` | Register new user with email verification |
+| `POST` | `/api/auth/signup` | Register new user with role assignment |
 | `GET` | `/api/auth/verify/:token` | Verify email (redirects to login) |
-| `POST` | `/api/auth/login` | Authenticate user and return JWT |
+| `POST` | `/api/auth/login` | Authenticate user with role validation |
 | `POST` | `/api/auth/forgot` | Send password reset email |
 | `POST` | `/api/auth/reset/:token` | Reset password with token |
+| `GET` | `/api/auth/profile` | Get current user profile (Protected) |
+| `PUT` | `/api/auth/profile` | Update user profile (Protected) |
+
+### Role-Based Access
+| Method | Endpoint | Access Level |
+|--------|----------|-------------|
+| `GET` | `/api/auth/users` | Admin only |
+| `POST` | `/api/auth/users` | Admin only |
+| `GET` | `/api/health` | Public |
+
+## 👥 User Roles & Access Levels
+
+| **Role** | **Email** | **Password** | **Access Level** |
+|----------|-----------|--------------|------------------|
+| **Admin** | admin@company.com | Admin@123 | Full system access, user management |
+| **Manager** | manager@company.com | Manager@123 | Production oversight, order management |
+| **Operator** | operator@company.com | Operator@123 | Work order execution, status updates |
+| **Inventory** | inventory@company.com | Inventory@123 | Stock management, BOM access |
 
 ## 📧 Gmail Setup Guide
 

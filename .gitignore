@@ -116,6 +116,7 @@ mongo-data/
 # Test files (optional - remove if you want to track them)
 test-email.*
 debug-nodemailer.*
+send-confirmation.*
 
 # Backup files
 *.backup
