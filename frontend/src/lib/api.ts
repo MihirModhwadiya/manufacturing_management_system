@@ -38,8 +38,8 @@ API.interceptors.response.use(
 
 // Authentication API calls
 export const authAPI = {
-  login: async (email: string, password: string, role?: string) => {
-    const response = await API.post('/api/auth/login', { email, password, role });
+  login: async (email: string, password: string) => {
+    const response = await API.post('/api/auth/login', { email, password });
     return response.data;
   },
 

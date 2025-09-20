@@ -4,7 +4,7 @@ import { authAPI } from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, role?: UserRole) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
   loading: boolean;
@@ -46,10 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string, role?: UserRole): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setLoading(true);
-      const response = await authAPI.login(email, password, role);
+      const response = await authAPI.login(email, password);
       
       if (response.token && response.user) {
         // Store token and user data
