@@ -26,49 +26,43 @@ const navigationItems = [
     title: 'Manufacturing Orders',
     href: '/manufacturing-orders',
     icon: Factory,
-    roles: ['admin', 'manager', 'operator']
+    roles: ['admin', 'manager'] // Only admin and manager can create/manage manufacturing orders
   },
   {
     title: 'Work Orders',
     href: '/work-orders',
     icon: ClipboardList,
-    roles: ['admin', 'manager', 'operator']
+    roles: ['admin', 'manager', 'operator'] // Operators need to see their assigned work orders
   },
   {
     title: 'Work Centers',
     href: '/work-centers',
     icon: Settings,
-    roles: ['admin', 'manager', 'operator']
+    roles: ['admin'] // Only admin can manage work centers (equipment setup)
   },
   {
     title: 'Bill of Materials',
     href: '/bom',
     icon: Package,
-    roles: ['admin', 'manager', 'inventory']
+    roles: ['admin', 'inventory'] // Only admin and inventory can manage BOMs
   },
   {
     title: 'Stock Ledger',
     href: '/stock-ledger',
     icon: Warehouse,
-    roles: ['admin', 'manager', 'inventory']
-  },
-  {
-    title: 'Profile Reports',
-    href: '/profile-reports',
-    icon: FileText,
-    roles: ['admin', 'manager', 'operator']
+    roles: ['admin', 'inventory', 'operator'] // Operators record movements, inventory manages stock
   },
   {
     title: 'Reports',
     href: '/reports',
     icon: FileText,
-    roles: ['admin', 'manager']
+    roles: ['admin', 'manager'] // Only admin and manager see overall reports
   },
   {
     title: 'Admin Panel',
     href: '/admin',
     icon: Shield,
-    roles: ['admin']
+    roles: ['admin'] // Only admin has system administration access
   }
 ];
 

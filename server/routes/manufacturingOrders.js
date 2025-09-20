@@ -4,8 +4,8 @@ import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// API endpoint: GET /manufacturing-orders - Get all manufacturing orders (admin only)
-router.get('/', authenticateToken, requireAdmin, async (req, res) => {
+// API endpoint: GET /manufacturing-orders - Get all manufacturing orders
+router.get('/', authenticateToken, async (req, res) => {
   try {
     // Fetch all manufacturing orders
     const orders = await ManufacturingOrder.find()
@@ -131,8 +131,8 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// API endpoint: GET /manufacturing-orders/:id - Get single manufacturing order (admin only)
-router.get('/:id', authenticateToken, requireAdmin, async (req, res) => {
+// API endpoint: GET /manufacturing-orders/:id - Get single manufacturing order
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
     // Extract order ID from URL parameters
     const { id } = req.params;

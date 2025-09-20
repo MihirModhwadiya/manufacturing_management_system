@@ -27,24 +27,31 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [ordersResponse, workOrdersResponse, analyticsResponse, activityResponse] = await Promise.all([
-        manufacturingOrderAPI.getAll(),
-        workOrderAPI.getAll(),
-        dashboardAPI.getAnalytics('30'), // 30 days
-        dashboardAPI.getActivity(5) // 5 recent activities
+      
+      // Try to fetch data but continue if some fail (for role-based access)
+      const [ordersResponse, workOrdersResponse, analyticsResponse, activityResponse] = await Promise.allSettled([
+        manufacturingOrderAPI.getAll().catch(() => ({ orders: [] })),
+        workOrderAPI.getAll().catch(() => ({ workOrders: [] })),
+        dashboardAPI.getAnalytics('30').catch(() => ({ analytics: { kpis: [] } })), // 30 days
+        dashboardAPI.getActivity(5).catch(() => ({ activities: [] })) // 5 recent activities
       ]);
       
-      setManufacturingOrders(ordersResponse.orders || []);
-      setWorkOrders(workOrdersResponse.workOrders || []);
-      setKpis(analyticsResponse.analytics?.kpis || []);
-      setRecentActivity(activityResponse.activities || []);
+      // Extract data from settled promises
+      setManufacturingOrders(
+        ordersResponse.status === 'fulfilled' ? (ordersResponse.value.orders || []) : []
+      );
+      setWorkOrders(
+        workOrdersResponse.status === 'fulfilled' ? (workOrdersResponse.value.workOrders || []) : []
+      );
+      setKpis(
+        analyticsResponse.status === 'fulfilled' ? (analyticsResponse.value.analytics?.kpis || []) : []
+      );
+      setRecentActivity(
+        activityResponse.status === 'fulfilled' ? (activityResponse.value.activities || []) : []
+      );
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load dashboard data. Please try again.",
-        variant: "destructive",
-      });
+      // Don't show error toast for partial failures, just log
     } finally {
       setLoading(false);
     }

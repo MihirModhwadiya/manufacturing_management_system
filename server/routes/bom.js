@@ -4,8 +4,8 @@ import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /bom - Get all Bills of Materials (admin only)
-router.get('/', authenticateToken, requireAdmin, async (req, res) => {
+// GET /bom - Get all Bills of Materials
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const boms = await BillOfMaterial.find()
         .populate('product', 'name code')
@@ -140,8 +140,8 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// API endpoint: GET /bom/:id - Get single Bill of Materials (admin only)
-router.get('/:id', authenticateToken, requireAdmin, async (req, res) => {
+// API endpoint: GET /bom/:id - Get single Bill of Materials
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
     // Extract BOM ID from URL parameters
     const { id } = req.params;
@@ -166,8 +166,8 @@ router.get('/:id', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// API endpoint: GET /bom/product/:productId - Get BOMs for specific product (admin only)
-router.get('/product/:productId', authenticateToken, requireAdmin, async (req, res) => {
+// API endpoint: GET /bom/product/:productId - Get BOMs for specific product
+router.get('/product/:productId', authenticateToken, async (req, res) => {
   try {
     // Extract product ID from URL parameters
     const { productId } = req.params;

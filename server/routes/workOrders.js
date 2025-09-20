@@ -4,8 +4,8 @@ import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// API endpoint: GET /work-orders - Get all work orders (admin only)
-router.get('/', authenticateToken, requireAdmin, async (req, res) => {
+// API endpoint: GET /work-orders - Get all work orders
+router.get('/', authenticateToken, async (req, res) => {
   try {
     // Fetch all work orders with creator details
     const workOrders = await WorkOrder.find()

@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Plus } from 'lucide-react';
 import { bomAPI } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 type BomItem = {
   _id: string;
@@ -15,6 +20,7 @@ export default function BOM() {
   const [boms, setBoms] = useState<BomItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     loadBOMs();
@@ -39,61 +45,70 @@ export default function BOM() {
 
   if (loading) {
     return (
-      <div style={{ padding: 24 }}>
-        <h2>Loading Bill of Materials…</h2>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 style={{ margin: 0 }}>Bill of Materials</h1>
-          <p style={{ color: '#666', marginTop: 4 }}>Manage product recipes and manufacturing operations</p>
+          <h1 className="text-3xl font-bold">Bill of Materials</h1>
+          <p className="text-muted-foreground">Manage product recipes and manufacturing operations</p>
         </div>
-        <button style={{ padding: '8px 12px', cursor: 'pointer' }}>Create BOM</button>
+        {(user?.role === 'admin' || user?.role === 'inventory') && (
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Create BOM
+          </Button>
+        )}
       </div>
 
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-        <div style={{ padding: 12, borderBottom: '1px solid #e5e7eb', background: '#fafafa' }}>
-          <strong>Bill of Materials</strong>
-        </div>
-        <div style={{ padding: 12 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #e5e7eb' }}>Product Code</th>
-                <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #e5e7eb' }}>Product Name</th>
-                <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #e5e7eb' }}>Version</th>
-                <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #e5e7eb' }}>Materials</th>
-                <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #e5e7eb' }}>Operations</th>
-                <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #e5e7eb' }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
+      <Card>
+        <CardHeader>
+          <CardTitle>Bill of Materials</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product Code</TableHead>
+                <TableHead>Product Name</TableHead>
+                <TableHead>Version</TableHead>
+                <TableHead>Materials</TableHead>
+                <TableHead>Operations</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {boms.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: 24, color: '#6b7280' }}>
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No BOMs found. Create your first Bill of Materials.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 boms.map((bom) => (
-                  <tr key={bom._id}>
-                    <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{bom.productCode}</td>
-                    <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{bom.productName}</td>
-                    <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{bom.version || '-'}</td>
-                    <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{bom.materials?.length ?? 0} items</td>
-                    <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>{bom.operations?.length ?? 0} ops</td>
-                    <td style={{ padding: 8, borderBottom: '1px solid #f3f4f6' }}>Active</td>
-                  </tr>
+                  <TableRow key={bom._id}>
+                    <TableCell className="font-medium">{bom.productCode}</TableCell>
+                    <TableCell>{bom.productName}</TableCell>
+                    <TableCell>{bom.version || '-'}</TableCell>
+                    <TableCell>{bom.materials?.length ?? 0} items</TableCell>
+                    <TableCell>{bom.operations?.length ?? 0} ops</TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Active
+                      </span>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

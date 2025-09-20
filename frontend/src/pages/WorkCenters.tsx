@@ -54,6 +54,18 @@ const WorkCenters = () => {
     loadDepartments();
   }, []);
 
+  // Only admin can access work centers
+  if (user?.role !== 'admin') {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold text-gray-900">Access Restricted</h2>
+          <p className="text-gray-600 mt-2">Only administrators can access work center management.</p>
+        </div>
+      </div>
+    );
+  }
+
   // Fetch all work centers from API
   const loadWorkCenters = async () => {
     try {
