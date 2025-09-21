@@ -8,6 +8,8 @@ A complete manufacturing ERP system with role-based authentication built with th
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=flat&logo=node.js)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-6+-47A248?style=flat&logo=mongodb)](https://mongodb.com/)
 
+video link : https://youtu.be/GtA2C6epTro
+
 ## ✨ Features
 
 - 🔐 **Role-Based Authentication**: 4-tier access control (Admin, Manager, Operator, Inventory)
